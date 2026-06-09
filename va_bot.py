@@ -1,4 +1,3 @@
-
 import logging
 import re
 import os
@@ -9,12 +8,12 @@ from telegram.ext import (
 )
  
 BOT_TOKEN = os.environ.get("BOT_TOKEN")
+ADMIN_USERNAME = "givrelin"
  
 FORBIDDEN_PROFILES = ["drivewitharthur", "moses_carss", "gueuledange_off", "capi_cs"]
 TIKTOK_REGEX = re.compile(r"https?://(www\.)?tiktok\.com/@[\w._-]+", re.IGNORECASE)
  
-# Un seul état intermédiaire
-WAITING_BUTTON, WAITING_PROFILES = range(2)
+STEP1, STEP2, WAITING_PROFILES = range(3)
  
 logging.basicConfig(format="%(asctime)s - %(name)s - %(levelname)s - %(message)s", level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -41,12 +40,18 @@ Chaque numéro WhatsApp ou Telegram d'influenceur = +3$
 + le fixe de 100$
 = *1 000$ ce mois-là*
 ━━━━━━━━━━━━━━━━━━━━
-Paiement tous les 3 jours — pas d'attente de fin de mois 🔥
+Paiement tous les 3 jours 🔥
+ 
+Tu es prêt à continuer ?"""
+ 
+MSG_OBJECTIVE = """📬 *TON OBJECTIF*
  
 Tu devras contacter environ *150 influenceurs par jour.*
-On préfère la *QUALITÉ* à la quantité — mieux vaut 50 bons profils que 150 mauvais.
  
-Appuie sur le bouton pour commencer le test 👇"""
+On préfère la *QUALITÉ* à la quantité !
+Mieux vaut 50 bons profils que 150 mauvais.
+ 
+Appuie sur *Commencer le test* quand tu es prêt !"""
  
 MSG_TEST = """🧪 *LE TEST*
  
@@ -96,18 +101,42 @@ Tape /start pour recommencer."""
 MSG_PROGRESS = "📋 Profils reçus : {count}/5\n✅ Valides : {valid}\n⚠️ Erreurs : {errors}/1"
  
  
+async def notify_admin(context: ContextTypes.DEFAULT_TYPE, user, profiles, status):
+    try:
+        profils_text = "\n".join([f"• {p}" for p in profiles])
+        msg = (
+            f"{'✅ NOUVEAU VA' if status == 'success' else '❌ TEST ÉCHOUÉ'}\n\n"
+            f"👤 @{user.username} ({user.first_name})\n"
+            f"🆔 ID: {user.id}\n\n"
+            f"📋 Profils soumis :\n{profils_text}"
+        )
+        await context.bot.send_message(chat_id=f"@{ADMIN_USERNAME}", text=msg)
+    except Exception as e:
+        logger.error(f"Erreur notification admin: {e}")
+ 
+ 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     context.user_data.clear()
     context.user_data["profiles"] = []
     context.user_data["errors"] = 0
     context.user_data["valid_count"] = 0
-    keyboard = [["Commencer le test"]]
+    keyboard = [["Je suis pret, continuer"]]
     await update.message.reply_text(
         MSG_WELCOME,
         parse_mode="Markdown",
         reply_markup=ReplyKeyboardMarkup(keyboard, resize_keyboard=True, one_time_keyboard=True)
     )
-    return WAITING_BUTTON
+    return STEP1
+ 
+ 
+async def show_objective(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    keyboard = [["Commencer le test"]]
+    await update.message.reply_text(
+        MSG_OBJECTIVE,
+        parse_mode="Markdown",
+        reply_markup=ReplyKeyboardMarkup(keyboard, resize_keyboard=True, one_time_keyboard=True)
+    )
+    return STEP2
  
  
 async def show_test(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -126,6 +155,8 @@ async def receive_profiles(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not urls:
         context.user_data["errors"] = context.user_data.get("errors", 0) + 1
         if context.user_data["errors"] > 1:
+            user = update.effective_user
+            await notify_admin(context, user, context.user_data.get("profiles", []), "failed")
             await update.message.reply_text(MSG_FAILED, parse_mode="Markdown")
             return ConversationHandler.END
         await update.message.reply_text(MSG_INVALID_URL)
@@ -143,6 +174,8 @@ async def receive_profiles(update: Update, context: ContextTypes.DEFAULT_TYPE):
             errors += 1
             context.user_data["errors"] = errors
             if errors > 1:
+                user = update.effective_user
+                await notify_admin(context, user, profiles, "failed")
                 await update.message.reply_text(MSG_FAILED, parse_mode="Markdown")
                 return ConversationHandler.END
             await update.message.reply_text(MSG_FORBIDDEN)
@@ -161,7 +194,7 @@ async def receive_profiles(update: Update, context: ContextTypes.DEFAULT_TYPE):
  
         if valid_count >= 5:
             user = update.effective_user
-            logger.info(f"NOUVEAU VA | @{user.username} ({user.id}) | Profils: {profiles}")
+            await notify_admin(context, user, profiles, "success")
             await update.message.reply_text(MSG_SUCCESS, parse_mode="Markdown")
             return ConversationHandler.END
  
@@ -187,7 +220,10 @@ def main():
     conv = ConversationHandler(
         entry_points=[CommandHandler("start", start)],
         states={
-            WAITING_BUTTON: [
+            STEP1: [
+                MessageHandler(filters.TEXT & ~filters.COMMAND, show_objective),
+            ],
+            STEP2: [
                 MessageHandler(filters.TEXT & ~filters.COMMAND, show_test),
             ],
             WAITING_PROFILES: [
