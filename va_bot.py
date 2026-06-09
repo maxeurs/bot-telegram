@@ -1,5 +1,4 @@
 import logging
-import re
 import os
 from telegram import Update, ReplyKeyboardMarkup, ReplyKeyboardRemove
 from telegram.ext import (
@@ -10,15 +9,10 @@ from telegram.ext import (
 BOT_TOKEN = os.environ.get("BOT_TOKEN")
 ADMIN_USERNAME = "givrelin"
  
-FORBIDDEN_PROFILES = ["drivewitharthur", "moses_carss", "gueuledange_off", "capi_cs"]
-TIKTOK_REGEX = re.compile(r"https?://(www\.)?tiktok\.com/@[\w._-]+", re.IGNORECASE)
- 
 S1, S2, S3, PROFILS = range(4)
  
 logging.basicConfig(format="%(asctime)s - %(levelname)s - %(message)s", level=logging.INFO)
 logger = logging.getLogger(__name__)
- 
-# ── MESSAGES ────────────────────────────────────────────────────────────────
  
 MSG1 = (
     "💼 TON JOB\n\n"
@@ -74,152 +68,74 @@ MSG4 = (
     "3️⃣ https://www.tiktok.com/@gueuledange_off\n"
     "4️⃣ https://www.tiktok.com/@capi_cs\n\n"
     "⚠️ IMPORTANT : Tu ne peux PAS utiliser ces profils dans le test ! Trouves-en d'autres 😉\n\n"
-    "💪 A TOI DE JOUER !\n"
+    "💪 À TOI DE JOUER !\n"
     "Envoie-moi tes 5 profils TikTok.\n"
     "✏️ Format : https://www.tiktok.com/@username\n\n"
-    "⚠️ Tu as droit à 1 erreur MAXIMUM !\n"
     "Tu peux les envoyer un par un ou tous d'un coup."
 )
  
-BTN1 = "Continuer ➡️"
-BTN2 = "Voir le test ➡️"
-BTN3 = "Voir les exemples ➡️"
-BTN4 = "Je suis pret, envoyer mes profils ➡️"
- 
- 
-# ── HANDLERS ────────────────────────────────────────────────────────────────
  
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     context.user_data.clear()
     context.user_data["profiles"] = []
-    context.user_data["errors"] = 0
-    context.user_data["valid_count"] = 0
-    kb = [[BTN1]]
     await update.message.reply_text(
         MSG1,
-        reply_markup=ReplyKeyboardMarkup(kb, resize_keyboard=True, one_time_keyboard=True)
+        reply_markup=ReplyKeyboardMarkup([["Continuer ➡️"]], resize_keyboard=True, one_time_keyboard=True)
     )
     return S1
  
- 
 async def step2(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    kb = [[BTN2]]
     await update.message.reply_text(
         MSG2,
-        reply_markup=ReplyKeyboardMarkup(kb, resize_keyboard=True, one_time_keyboard=True)
+        reply_markup=ReplyKeyboardMarkup([["Voir le test ➡️"]], resize_keyboard=True, one_time_keyboard=True)
     )
     return S2
  
- 
 async def step3(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    kb = [[BTN3]]
     await update.message.reply_text(
         MSG3,
-        reply_markup=ReplyKeyboardMarkup(kb, resize_keyboard=True, one_time_keyboard=True)
+        reply_markup=ReplyKeyboardMarkup([["Voir les exemples ➡️"]], resize_keyboard=True, one_time_keyboard=True)
     )
     return S3
  
- 
 async def step4(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    kb = [[BTN4]]
     await update.message.reply_text(
         MSG4,
-        reply_markup=ReplyKeyboardMarkup(kb, resize_keyboard=True, one_time_keyboard=True)
+        reply_markup=ReplyKeyboardRemove()
     )
     return PROFILS
  
  
 async def receive_profiles(update: Update, context: ContextTypes.DEFAULT_TYPE):
     text = update.message.text.strip()
+    profiles = context.user_data.get("profiles", [])
  
-    # Si le VA appuie sur le bouton "Je suis pret" au lieu d'envoyer un profil
-    if text == BTN4:
+    profiles.append(text)
+    context.user_data["profiles"] = profiles
+    count = len(profiles)
+ 
+    await update.message.reply_text(f"✅ Profil {count}/5 reçu !")
+ 
+    if count >= 5:
+        user = update.effective_user
+        await notify_admin(context, user, profiles)
         await update.message.reply_text(
-            "Envoie tes profils TikTok maintenant 👇\nFormat : https://www.tiktok.com/@username",
+            "🎉 FÉLICITATIONS !\n\nTu as envoyé tes 5 profils ! ✅\n\nNotre équipe va les vérifier et te recontacte très prochainement. 🚀\n\nBienvenue dans l'équipe ! 💪",
             reply_markup=ReplyKeyboardRemove()
         )
-        return PROFILS
- 
-    urls = TIKTOK_REGEX.findall(text)
- 
-    if not urls:
-        context.user_data["errors"] = context.user_data.get("errors", 0) + 1
-        if context.user_data["errors"] > 1:
-            await notify_admin(context, update.effective_user, context.user_data.get("profiles", []), "echoue")
-            await update.message.reply_text(
-                "❌ TEST ECHOUE\n\nTu as depasse le nombre d'erreurs autorisees (1 maximum).\n\nTape /start pour recommencer.",
-                reply_markup=ReplyKeyboardRemove()
-            )
-            return ConversationHandler.END
-        await update.message.reply_text(
-            "❌ Ce n'est pas une URL TikTok valide.\n\nFormat attendu : https://www.tiktok.com/@username",
-            reply_markup=ReplyKeyboardRemove()
-        )
-        await send_progress(update, context)
-        return PROFILS
- 
-    for raw_url in urls:
-        url = raw_url.lower().rstrip("/")
-        username = url.split("/@")[-1].lower()
-        profiles = context.user_data.get("profiles", [])
-        errors = context.user_data.get("errors", 0)
-        valid_count = context.user_data.get("valid_count", 0)
- 
-        if username in FORBIDDEN_PROFILES:
-            errors += 1
-            context.user_data["errors"] = errors
-            if errors > 1:
-                await notify_admin(context, update.effective_user, profiles, "echoue")
-                await update.message.reply_text(
-                    "❌ TEST ECHOUE\n\nTu as utilise un profil exemple et depasse la limite d'erreurs.\n\nTape /start pour recommencer.",
-                    reply_markup=ReplyKeyboardRemove()
-                )
-                return ConversationHandler.END
-            await update.message.reply_text("🚫 Ce profil fait partie des exemples fournis, tu ne peux pas l'utiliser !")
-            await send_progress(update, context)
-            continue
- 
-        if url in profiles:
-            await update.message.reply_text("⚠️ Tu as deja envoye ce profil. Envoie-en un autre.")
-            continue
- 
-        profiles.append(url)
-        valid_count += 1
-        context.user_data["profiles"] = profiles
-        context.user_data["valid_count"] = valid_count
- 
-        await update.message.reply_text(f"✅ Profil {valid_count}/5 enregistre !")
- 
-        if valid_count >= 5:
-            await notify_admin(context, update.effective_user, profiles, "reussi")
-            await update.message.reply_text(
-                "🎉 FELICITATIONS !\n\nTu as passe le test avec succes ! ✅\n\nNotre equipe va verifier tes profils et te recontacte tres prochainement. 🚀\n\nBienvenue dans l'equipe ! 💪",
-                reply_markup=ReplyKeyboardRemove()
-            )
-            return ConversationHandler.END
- 
-    if context.user_data.get("valid_count", 0) < 5:
-        await send_progress(update, context)
+        return ConversationHandler.END
  
     return PROFILS
  
  
-async def send_progress(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    valid = context.user_data.get("valid_count", 0)
-    errors = context.user_data.get("errors", 0)
-    await update.message.reply_text(
-        f"📋 Profils recus : {valid + errors}/5\n✅ Valides : {valid}\n⚠️ Erreurs : {errors}/1"
-    )
- 
- 
-async def notify_admin(context: ContextTypes.DEFAULT_TYPE, user, profiles, status):
+async def notify_admin(context: ContextTypes.DEFAULT_TYPE, user, profiles):
     try:
-        profils_text = "\n".join([f"• {p}" for p in profiles]) if profiles else "Aucun profil soumis"
-        emoji = "✅" if status == "reussi" else "❌"
+        profils_text = "\n".join([f"{i+1}. {p}" for i, p in enumerate(profiles)])
+        username = f"@{user.username}" if user.username else user.first_name
         msg = (
-            f"{emoji} VA {status.upper()}\n\n"
-            f"👤 @{user.username} ({user.first_name})\n"
-            f"🆔 ID Telegram : {user.id}\n\n"
+            f"🆕 NOUVEAU VA — TEST COMPLÉTÉ\n\n"
+            f"👤 {username} ({user.first_name})\n"
+            f"🆔 ID : {user.id}\n\n"
             f"📋 Profils soumis :\n{profils_text}"
         )
         await context.bot.send_message(chat_id=f"@{ADMIN_USERNAME}", text=msg)
@@ -228,11 +144,9 @@ async def notify_admin(context: ContextTypes.DEFAULT_TYPE, user, profiles, statu
  
  
 async def cancel(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text("Session annulee. Tape /start pour recommencer.", reply_markup=ReplyKeyboardRemove())
+    await update.message.reply_text("Session annulée. Tape /start pour recommencer.", reply_markup=ReplyKeyboardRemove())
     return ConversationHandler.END
  
- 
-# ── MAIN ────────────────────────────────────────────────────────────────────
  
 def main():
     app = Application.builder().token(BOT_TOKEN).build()
