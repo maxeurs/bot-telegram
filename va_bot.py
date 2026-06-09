@@ -7,7 +7,7 @@ from telegram.ext import (
 )
  
 BOT_TOKEN = os.environ.get("BOT_TOKEN")
-ADMIN_USERNAME = "givrelin"
+ADMIN_CHAT_ID = 8655805932
  
 S1, S2, S3, PROFILS = range(4)
  
@@ -138,7 +138,7 @@ async def notify_admin(context: ContextTypes.DEFAULT_TYPE, user, profiles):
             f"🆔 ID : {user.id}\n\n"
             f"📋 Profils soumis :\n{profils_text}"
         )
-        await context.bot.send_message(chat_id=f"@{ADMIN_USERNAME}", text=msg)
+        await context.bot.send_message(chat_id=ADMIN_CHAT_ID, text=msg)
     except Exception as e:
         logger.error(f"Erreur notification admin : {e}")
  
@@ -167,4 +167,3 @@ def main():
  
 if __name__ == "__main__":
     main()
- 
