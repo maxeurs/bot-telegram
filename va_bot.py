@@ -16,6 +16,9 @@ WAITING_START, WAITING_PROFILES = range(2)
 logging.basicConfig(format="%(asctime)s - %(name)s - %(levelname)s - %(message)s", level=logging.INFO)
 logger = logging.getLogger(__name__)
  
+BTN_PRET = "Je suis pret, continuer"
+BTN_TEST = "Commencer le test"
+ 
 MSG_WELCOME = """💼 *TON JOB*
  
 Tu dois contacter des influenceurs sur TikTok et Instagram 📱
@@ -104,7 +107,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     context.user_data["profiles"] = []
     context.user_data["errors"] = 0
     context.user_data["valid_count"] = 0
-    keyboard = [["✅ Je suis prêt, continuer"]]
+    keyboard = [[BTN_PRET]]
     await update.message.reply_text(
         MSG_WELCOME,
         parse_mode="Markdown",
@@ -114,7 +117,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
  
  
 async def show_objective(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    keyboard = [["🧪 Commencer le test"]]
+    keyboard = [[BTN_TEST]]
     await update.message.reply_text(
         MSG_OBJECTIVE,
         parse_mode="Markdown",
@@ -205,8 +208,8 @@ def main():
         entry_points=[CommandHandler("start", start)],
         states={
             WAITING_START: [
-                MessageHandler(filters.Regex(r"✅ Je suis prêt"), show_objective),
-                MessageHandler(filters.Regex(r"🧪 Commencer le test"), show_test),
+                MessageHandler(filters.Text(BTN_PRET), show_objective),
+                MessageHandler(filters.Text(BTN_TEST), show_test),
             ],
             WAITING_PROFILES: [
                 MessageHandler(filters.TEXT & ~filters.COMMAND, receive_profiles),
