@@ -1,6 +1,5 @@
 import logging
 import re
-import os
 from telegram import Update, ReplyKeyboardMarkup, ReplyKeyboardRemove
 from telegram.ext import (
     Application, CommandHandler, MessageHandler,
@@ -8,7 +7,7 @@ from telegram.ext import (
 )
 
 # ── CONFIG ──────────────────────────────────────────────────────────────────
-BOT_TOKEN = os.environ.get("BOT_TOKEN")  # Token défini dans les Variables Railway
+BOT_TOKEN = "8608693468:AAHgqQmTcrm7nwrOF6TJtUq9h7fsbzuenYA"  # Remplace par ton token BotFather
 
 # Profils exemples interdits
 FORBIDDEN_PROFILES = [
@@ -50,7 +49,7 @@ Chaque numéro WhatsApp ou Telegram d'influenceur = +3$
 📊 *Exemple concret (1 mois) :*
 ➡️ 10 contacts/jour × 30 jours = 300 contacts
 ➡️ 300 × 3$ = 900$
-➡️ \+ le fixe de 100$
+➡️ + le fixe de 100$
 🤑 = *1 000$ ce mois-là*
 ━━━━━━━━━━━━━━━━━━━━
 ⏱️ Paiement tous les 3 jours — pas d'attente de fin de mois 🔥
@@ -75,9 +74,9 @@ Tu vas m'envoyer *5 profils TikTok* via ce bot.
 
 📌 *4 EXEMPLES de bons profils* (tu ne peux PAS les utiliser) :
 1️⃣ https://www.tiktok.com/@drivewitharthur
-2️⃣ https://www.tiktok.com/@moses\_carss
-3️⃣ https://www.tiktok.com/@gueuledange\_off
-4️⃣ https://www.tiktok.com/@capi\_cs
+2️⃣ https://www.tiktok.com/@moses_carss
+3️⃣ https://www.tiktok.com/@gueuledange_off
+4️⃣ https://www.tiktok.com/@capi_cs
 
 ⚠️ Tu as droit à *1 erreur MAXIMUM !*
 
